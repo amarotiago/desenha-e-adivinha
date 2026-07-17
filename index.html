@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Desenha e Adivinha 🎨</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: linear-gradient(160deg, #ffe9a8, #ffc1e3 55%, #b8e6ff);
+    touch-action: manipulation;
+  }
+  #app { height: 100%; width: 100%; display: flex; flex-direction: column; }
+  .screen { flex: 1; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center; gap: 16px; }
+  .screen.active { display: flex; }
+  h1 { font-size: 2.1rem; margin: 0 0 4px; color: #5a3d7a; }
+  h2 { font-size: 1.4rem; margin: 0; color: #5a3d7a; }
+  p { color: #6b5480; margin: 0; font-size: 1.05rem; line-height: 1.4; }
+  button {
+    font-size: 1.15rem; font-weight: 700; padding: 16px 28px; border-radius: 20px;
+    border: none; cursor: pointer; color: white; box-shadow: 0 4px 0 rgba(0,0,0,0.15);
+    transition: transform 0.05s;
+  }
+  button:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,0.15); }
+  .btn-primary { background: #ff7ab6; }
+  .btn-secondary { background: #7ab8ff; }
+  .btn-green { background: #5ecb7d; }
+  .btn-gray { background: #b3a6c4; }
+  .btn-small { font-size: 0.95rem; padding: 10px 16px; border-radius: 14px; box-shadow: 0 3px 0 rgba(0,0,0,0.15); }
+  input[type=text] {
+    font-size: 1.3rem; padding: 14px; border-radius: 16px; border: 3px solid #c9a8e0;
+    text-align: center; width: 240px; text-transform: uppercase; letter-spacing: 3px;
+    background: white;
+  }
+  .lang-row { display: flex; gap: 16px; }
+  .lang-btn {
+    font-size: 2.2rem; padding: 18px 22px; border-radius: 18px; border: 3px solid #c9a8e0;
+    background: white; cursor: pointer;
+  }
+  .lang-btn.selected { background: #ffe28a; border-color: #ff7ab6; }
+  .code-display {
+    font-size: 2.6rem; font-weight: 800; letter-spacing: 6px; color: #5a3d7a;
+    background: white; padding: 14px 22px; border-radius: 18px; border: 3px dashed #ff7ab6;
+  }
+  .spinner {
+    width: 40px; height: 40px; border: 5px solid #e0d0f0; border-top-color: #ff7ab6;
+    border-radius: 50%; animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Game screen */
+  #gameScreen { padding: 8px; gap: 6px; justify-content: flex-start; }
+  .topbar { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; }
+  .score-pill { background: white; border-radius: 14px; padding: 8px 14px; font-weight: 700; color: #5a3d7a; box-shadow: 0 2px 0 rgba(0,0,0,0.1); font-size: 0.95rem; }
+  .status-line { font-weight: 700; color: #5a3d7a; font-size: 1.1rem; min-height: 1.4em; }
+  .word-box { background: #fff3c4; border: 2px dashed #ffb84d; border-radius: 14px; padding: 8px 18px; font-size: 1.3rem; font-weight: 800; color: #8a5a00; }
+
+  #canvasWrap { flex: 1; width: 100%; position: relative; border-radius: 18px; overflow: hidden; background: white; box-shadow: inset 0 0 0 3px #c9a8e0; }
+  canvas { width: 100%; height: 100%; touch-action: none; display: block; }
+
+  .toolbar { display: flex; gap: 8px; padding: 6px 0; flex-wrap: wrap; justify-content: center; align-items: center; }
+  .color-dot { width: 34px; height: 34px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 0 2px #ddd; cursor: pointer; }
+  .color-dot.selected { box-shadow: 0 0 0 3px #5a3d7a; }
+  .size-dot { background: #5a3d7a; border-radius: 50%; }
+
+  .chat-row { display: flex; gap: 8px; width: 100%; padding: 6px 0; }
+  .chat-row input { flex: 1; width: auto; text-transform: none; letter-spacing: normal; font-size: 1.05rem; padding: 12px; }
+  .guess-log { width: 100%; max-height: 70px; overflow-y: auto; background: rgba(255,255,255,0.6); border-radius: 10px; padding: 6px 10px; font-size: 0.95rem; color: #5a3d7a; }
+  .guess-item { padding: 2px 0; }
+  .guess-item b { color: #ff7ab6; }
+
+  .hidden { display: none !important; }
+
+  .demo-banner { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #5a3d7a; color: white; border-radius: 12px; padding: 8px 12px; font-size: 0.82rem; text-align: left; }
+  .demo-banner button { padding: 6px 12px; font-size: 0.8rem; box-shadow: 0 3px 0 rgba(0,0,0,0.2); }
+  .perspective-toggle { width: 100%; display: flex; gap: 8px; }
+  .persp-btn { flex: 1; padding: 10px 6px; border-radius: 14px; border: 3px solid #c9a8e0; background: white; color: #5a3d7a; font-size: 0.9rem; font-weight: 700; box-shadow: none; }
+  .persp-btn.selected { background: #ffe28a; border-color: #ff7ab6; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- LANGUAGE SELECT -->
+  <div id="langScreen" class="screen active">
+    <h1>🎨 Desenha e Adivinha</h1>
+    <p>Escolhe o teu idioma / Выбери свой язык</p>
+    <div class="lang-row">
+      <button class="lang-btn" data-lang="pt">🇵🇹 Português</button>
+      <button class="lang-btn" data-lang="ru">🇷🇺 Русский</button>
+    </div>
+  </div>
+
+  <!-- START -->
+  <div id="startScreen" class="screen">
+    <h1 id="t_title">🎨 Desenha e Adivinha</h1>
+    <p id="t_subtitle">Jogo para jogar com alguém especial, à distância!</p>
+    <button class="btn-primary" id="btnCreate">Criar Sala</button>
+    <button class="btn-secondary" id="btnJoin">Entrar numa Sala</button>
+    <button class="btn-gray btn-small" id="btnDemo">🎮 Modo Demo</button>
+    <p id="t_demoHint" style="font-size:0.85rem;opacity:0.75;">Experimenta sozinho, sem precisares de ligar a ninguém</p>
+  </div>
+
+  <!-- JOIN INPUT -->
+  <div id="joinScreen" class="screen">
+    <h2 id="t_joinTitle">Introduz o código da sala</h2>
+    <input type="text" id="joinCodeInput" maxlength="5" placeholder="CÓDIGO">
+    <button class="btn-primary" id="btnJoinConfirm">Entrar</button>
+    <button class="btn-gray btn-small" id="btnJoinBack">Voltar</button>
+  </div>
+
+  <!-- WAITING (host) -->
+  <div id="waitScreen" class="screen">
+    <h2 id="t_yourCode">O teu código:</h2>
+    <div class="code-display" id="codeDisplay">----</div>
+    <button class="btn-secondary btn-small" id="btnCopyCode">📋 Copiar código</button>
+    <div class="spinner"></div>
+    <p id="t_waiting">À espera que a outra pessoa entre com este código…</p>
+  </div>
+
+  <div id="connectingScreen" class="screen">
+    <div class="spinner"></div>
+    <p id="t_connecting">A ligar…</p>
+  </div>
+
+  <div id="errorScreen" class="screen">
+    <h2>😕</h2>
+    <p id="errorText"></p>
+    <button class="btn-primary" id="btnErrorBack">OK</button>
+  </div>
+
+  <!-- GAME -->
+  <div id="gameScreen" class="screen">
+    <div class="topbar">
+      <div class="score-pill" id="scoreDisplay">🏆 0 - 0</div>
+      <div class="word-box hidden" id="wordBox"></div>
+      <button class="btn-gray btn-small" id="btnSkip">⏭️</button>
+    </div>
+    <div class="demo-banner hidden" id="demoBanner">
+      <span id="t_demoBannerText">Modo Demo — estás só tu. Muda a vista para ver os dois lados do jogo.</span>
+      <button class="btn-gray" id="btnExitDemo">🚪 Sair</button>
+    </div>
+    <div class="perspective-toggle hidden" id="perspectiveToggle">
+      <button class="persp-btn selected" id="btnPerspDrawer">✏️ <span id="t_perspDrawer">Eu (desenho)</span></button>
+      <button class="persp-btn" id="btnPerspGuesser">🧐 <span id="t_perspGuesser">Maria (adivinha)</span></button>
+    </div>
+    <div class="status-line" id="statusLine"></div>
+    <div id="canvasWrap"><canvas id="canvas"></canvas></div>
+    <div class="toolbar" id="drawerToolbar">
+      <div class="color-dot" style="background:#000000" data-color="#000000"></div>
+      <div class="color-dot" style="background:#e53935" data-color="#e53935"></div>
+      <div class="color-dot" style="background:#1e88e5" data-color="#1e88e5"></div>
+      <div class="color-dot" style="background:#43a047" data-color="#43a047"></div>
+      <div class="color-dot" style="background:#fb8c00" data-color="#fb8c00"></div>
+      <div class="color-dot" style="background:#8e24aa" data-color="#8e24aa"></div>
+      <div class="color-dot size-dot" style="width:14px;height:14px" data-size="3"></div>
+      <div class="color-dot size-dot" style="width:22px;height:22px" data-size="6"></div>
+      <div class="color-dot size-dot" style="width:32px;height:32px;background:white" data-size="24" data-eraser="1"></div>
+      <button class="btn-gray btn-small" id="btnClear">🗑️</button>
+    </div>
+    <div class="chat-row hidden" id="guesserRow">
+      <input type="text" id="guessInput" placeholder="Escreve o teu palpite…">
+      <button class="btn-green btn-small" id="btnSendGuess">➤</button>
+    </div>
+    <div class="guess-log" id="guessLog"></div>
+    <button class="btn-green hidden" id="btnCorrect">✅ Acertou!</button>
+  </div>
+
+</div>
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+(function(){
+"use strict";
+
+/* ---------- Texts ---------- */
+const TXT = {
+  pt: {
+    title: "🎨 Desenha e Adivinha", subtitle: "Jogo para jogar com alguém especial, à distância!",
+    createRoom: "Criar Sala", joinRoom: "Entrar numa Sala", joinTitle: "Introduz o código da sala",
+    enter: "Entrar", back: "Voltar", yourCode: "O teu código:", copyCode: "📋 Copiar código",
+    waiting: "À espera que a outra pessoa entre com este código…", connecting: "A ligar…",
+    connected: "Ligado! 🎉", guessPlaceholder: "Escreve o teu palpite…", word: "Palavra: ",
+    yourTurn: "É a tua vez de desenhar! ✏️", theirTurn: "Está a desenhar… tenta adivinhar!",
+    correct: "✅ Acertou!", skip: "Passar", clear: "Limpar", errorGeneric: "Não foi possível ligar. Verifica a internet e tenta outra vez.",
+    invalidCode: "Código inválido ou a sala não existe.", pointWon: "🎉 Ponto marcado!", roundStart: "Nova ronda!",
+    correctGuess: "acertou!",
+    demoBtn: "🎮 Modo Demo", demoHint: "Experimenta sozinho, sem precisares de ligar a ninguém",
+    demoBanner: "Modo Demo — estás só tu. Muda a vista para ver os dois lados do jogo.",
+    perspDrawer: "Eu (desenho)", perspGuesser: "Maria (adivinha)", exitDemo: "🚪 Sair"
+  },
+  ru: {
+    title: "🎨 Рисуй и угадывай", subtitle: "Игра, чтобы играть с особенным человеком на расстоянии!",
+    createRoom: "Создать комнату", joinRoom: "Войти в комнату", joinTitle: "Введи код комнаты",
+    enter: "Войти", back: "Назад", yourCode: "Твой код:", copyCode: "📋 Скопировать код",
+    waiting: "Ожидание, пока другой человек введёт этот код…", connecting: "Подключение…",
+    connected: "Подключено! 🎉", guessPlaceholder: "Напиши свою догадку…", word: "Слово: ",
+    yourTurn: "Твоя очередь рисовать! ✏️", theirTurn: "Он(а) рисует… попробуй угадать!",
+    correct: "✅ Угадал(а)!", skip: "Пропустить", clear: "Очистить", errorGeneric: "Не удалось подключиться. Проверь интернет и попробуй снова.",
+    invalidCode: "Неверный код или комната не существует.", pointWon: "🎉 Очко заработано!", roundStart: "Новый раунд!",
+    correctGuess: "угадал(а)!",
+    demoBtn: "🎮 Демо-режим", demoHint: "Попробуй один, не нужно никому звонить",
+    demoBanner: "Демо-режим — здесь только ты. Переключи вид, чтобы увидеть обе стороны игры.",
+    perspDrawer: "Я (рисую)", perspGuesser: "Мария (угадывает)", exitDemo: "🚪 Выйти"
+  }
+};
+
+const WORDS = [
+  {pt:"gato",ru:"кошка"},{pt:"cão",ru:"собака"},{pt:"sol",ru:"солнце"},{pt:"lua",ru:"луна"},
+  {pt:"estrela",ru:"звезда"},{pt:"árvore",ru:"дерево"},{pt:"flor",ru:"цветок"},{pt:"casa",ru:"дом"},
+  {pt:"carro",ru:"машина"},{pt:"bola",ru:"мяч"},{pt:"peixe",ru:"рыба"},{pt:"pássaro",ru:"птица"},
+  {pt:"maçã",ru:"яблоко"},{pt:"banana",ru:"банан"},{pt:"bolo",ru:"торт"},{pt:"gelado",ru:"мороженое"},
+  {pt:"chapéu",ru:"шляпа"},{pt:"sapato",ru:"ботинок"},{pt:"livro",ru:"книга"},{pt:"avião",ru:"самолёт"},
+  {pt:"barco",ru:"лодка"},{pt:"bicicleta",ru:"велосипед"},{pt:"guarda-chuva",ru:"зонт"},{pt:"coração",ru:"сердце"},
+  {pt:"nuvem",ru:"облако"},{pt:"chuva",ru:"дождь"},{pt:"neve",ru:"снег"},{pt:"urso",ru:"медведь"},
+  {pt:"coelho",ru:"кролик"},{pt:"borboleta",ru:"бабочка"},{pt:"elefante",ru:"слон"},{pt:"leão",ru:"лев"},
+  {pt:"rei",ru:"король"},{pt:"princesa",ru:"принцесса"},{pt:"robô",ru:"робот"},{pt:"foguetão",ru:"ракета"},
+  {pt:"arco-íris",ru:"радуга"},{pt:"balão",ru:"шарик"},{pt:"relógio",ru:"часы"},{pt:"chave",ru:"ключ"},
+  {pt:"estrela-do-mar",ru:"морская звезда"},{pt:"vulcão",ru:"вулкан"},{pt:"dinossauro",ru:"динозавр"},{pt:"castelo",ru:"замок"}
+];
+
+/* ---------- State ---------- */
+let lang = localStorage.getItem("dea_lang") || null;
+let peer = null, conn = null, isHost = false;
+let myScore = 0, theirScore = 0;
+let iAmDrawer = false;
+let currentColor = "#000000", currentSize = 3, isEraser = false;
+let drawing = false, lastX = 0, lastY = 0;
+let roomCode = "";
+let isDemo = false, demoScore = 0;
+let currentWord = null;
+
+/* ---------- Helpers ---------- */
+function $(id){ return document.getElementById(id); }
+function show(id){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  $(id).classList.add("active");
+}
+function t(key){ return TXT[lang][key]; }
+function applyStaticTexts(){
+  $("t_title").textContent = t("title");
+  $("t_subtitle").textContent = t("subtitle");
+  $("btnCreate").textContent = t("createRoom");
+  $("btnJoin").textContent = t("joinRoom");
+  $("t_joinTitle").textContent = t("joinTitle");
+  $("btnJoinConfirm").textContent = t("enter");
+  $("btnJoinBack").textContent = t("back");
+  $("t_yourCode").textContent = t("yourCode");
+  $("btnCopyCode").textContent = t("copyCode");
+  $("t_waiting").textContent = t("waiting");
+  $("t_connecting").textContent = t("connecting");
+  $("guessInput").placeholder = t("guessPlaceholder");
+  $("btnCorrect").textContent = t("correct");
+  $("btnSkip").title = t("skip");
+  $("btnClear").textContent = "🗑️ " + t("clear");
+  $("btnDemo").textContent = t("demoBtn");
+  $("t_demoHint").textContent = t("demoHint");
+  $("t_demoBannerText").textContent = t("demoBanner");
+  $("t_perspDrawer").textContent = t("perspDrawer");
+  $("t_perspGuesser").textContent = t("perspGuesser");
+  $("btnExitDemo").textContent = t("exitDemo");
+  document.title = t("title");
+}
+function randCode(len){
+  const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no ambiguous chars
+  let s = "";
+  for(let i=0;i<len;i++) s += chars[Math.floor(Math.random()*chars.length)];
+  return s;
+}
+
+/* ---------- Language selection ---------- */
+document.querySelectorAll(".lang-btn").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    lang = btn.dataset.lang;
+    localStorage.setItem("dea_lang", lang);
+    applyStaticTexts();
+    show("startScreen");
+  });
+});
+
+if(lang){ applyStaticTexts(); show("startScreen"); }
+
+/* ---------- Start screen ---------- */
+$("btnCreate").addEventListener("click", createRoom);
+$("btnJoin").addEventListener("click", ()=> show("joinScreen"));
+$("btnJoinBack").addEventListener("click", ()=> show("startScreen"));
+$("btnErrorBack").addEventListener("click", ()=> { teardownPeer(); show("startScreen"); });
+
+$("joinCodeInput").addEventListener("input", (e)=>{
+  e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,"");
+});
+
+$("btnJoinConfirm").addEventListener("click", ()=>{
+  const code = $("joinCodeInput").value.trim();
+  if(code.length < 3){ return; }
+  joinRoom(code);
+});
+
+$("btnCopyCode").addEventListener("click", ()=>{
+  if(navigator.clipboard){ navigator.clipboard.writeText(roomCode).catch(()=>{}); }
+  $("btnCopyCode").textContent = "✅";
+  setTimeout(()=> $("btnCopyCode").textContent = t("copyCode"), 1200);
+});
+
+$("btnDemo").addEventListener("click", startDemo);
+$("btnExitDemo").addEventListener("click", ()=>{
+  isDemo = false;
+  $("demoBanner").classList.add("hidden");
+  $("perspectiveToggle").classList.add("hidden");
+  show("startScreen");
+});
+$("btnPerspDrawer").addEventListener("click", ()=> setPerspective(true));
+$("btnPerspGuesser").addEventListener("click", ()=> setPerspective(false));
+function setPerspective(drawerView){
+  if(!isDemo) return;
+  iAmDrawer = drawerView;
+  applyRoleUI();
+}
+function updatePerspectiveButtons(){
+  $("btnPerspDrawer").classList.toggle("selected", iAmDrawer);
+  $("btnPerspGuesser").classList.toggle("selected", !iAmDrawer);
+}
+
+function startDemo(){
+  isDemo = true;
+  demoScore = 0;
+  updateScore();
+  $("demoBanner").classList.remove("hidden");
+  $("perspectiveToggle").classList.remove("hidden");
+  show("gameScreen");
+  setupCanvas();
+  newRound(true);
+}
+
+/* ---------- PeerJS setup ---------- */
+function teardownPeer(){
+  try{ if(conn) conn.close(); }catch(e){}
+  try{ if(peer) peer.destroy(); }catch(e){}
+  peer = null; conn = null;
+}
+
+function showError(msg){
+  teardownPeer();
+  $("errorText").textContent = msg;
+  show("errorScreen");
+}
+
+function createRoom(){
+  isHost = true;
+  roomCode = randCode(5);
+  $("codeDisplay").textContent = roomCode;
+  show("waitScreen");
+
+  peer = new Peer("dea-" + roomCode, {debug:0});
+  peer.on("open", ()=>{ /* waiting for guest */ });
+  peer.on("connection", (c)=>{
+    conn = c;
+    setupConnection();
+  });
+  peer.on("error", (err)=>{
+    console.error(err);
+    showError(t("errorGeneric"));
+  });
+}
+
+function joinRoom(code){
+  isHost = false;
+  roomCode = code;
+  show("connectingScreen");
+
+  peer = new Peer(undefined, {debug:0});
+  peer.on("open", ()=>{
+    conn = peer.connect("dea-" + code, {reliable:true});
+    conn.on("open", ()=>{ setupConnection(); });
+    conn.on("error", (err)=>{ console.error(err); showError(t("invalidCode")); });
+    // timeout in case the room doesn't exist
+    setTimeout(()=>{
+      if($("connectingScreen").classList.contains("active")){
+        showError(t("invalidCode"));
+      }
+    }, 12000);
+  });
+  peer.on("error", (err)=>{
+    console.error(err);
+    showError(t("errorGeneric"));
+  });
+}
+
+function setupConnection(){
+  conn.on("data", handleData);
+  conn.on("close", ()=>{ showError(t("errorGeneric")); });
+  startGame();
+}
+
+/* ---------- Game flow ---------- */
+function startGame(){
+  isDemo = false;
+  $("demoBanner").classList.add("hidden");
+  $("perspectiveToggle").classList.add("hidden");
+  myScore = 0; theirScore = 0;
+  updateScore();
+  show("gameScreen");
+  setupCanvas();
+  if(isHost){
+    iAmDrawer = true;
+    newRound(true);
+  } else {
+    iAmDrawer = false;
+    $("statusLine").textContent = t("connected");
+  }
+}
+
+function updateScore(){
+  if(isDemo){
+    $("scoreDisplay").textContent = "⭐ " + demoScore;
+  } else {
+    $("scoreDisplay").textContent = "🏆 " + myScore + " - " + theirScore;
+  }
+}
+
+function pickWord(){
+  return WORDS[Math.floor(Math.random()*WORDS.length)];
+}
+
+// Sends data to the remote peer; no-op in demo mode (there is no remote peer,
+// the perspective toggle simulates both sides locally instead).
+function sendData(data){
+  if(isDemo) return;
+  if(conn && conn.open){ conn.send(data); }
+}
+
+function applyRoleUI(){
+  if(iAmDrawer){
+    $("wordBox").textContent = t("word") + (currentWord ? currentWord[lang] : "");
+    $("wordBox").classList.remove("hidden");
+    $("statusLine").textContent = t("yourTurn");
+    $("drawerToolbar").classList.remove("hidden");
+    $("guesserRow").classList.add("hidden");
+    $("btnCorrect").classList.remove("hidden");
+    $("btnSkip").classList.remove("hidden");
+  } else {
+    $("wordBox").classList.add("hidden");
+    $("statusLine").textContent = t("theirTurn");
+    $("drawerToolbar").classList.add("hidden");
+    $("guesserRow").classList.remove("hidden");
+    $("btnCorrect").classList.add("hidden");
+    $("btnSkip").classList.add("hidden");
+  }
+  if(isDemo) updatePerspectiveButtons();
+}
+
+function newRound(iAmDrawerNow){
+  iAmDrawer = iAmDrawerNow;
+  clearCanvasLocal();
+  $("guessLog").innerHTML = "";
+  if(iAmDrawer){ currentWord = pickWord(); }
+  applyRoleUI();
+  if(iAmDrawer){ sendData({type:"round", drawerIsHost: isHost}); }
+}
+
+function handleData(data){
+  switch(data.type){
+    case "round":
+      newRound(false);
+      break;
+    case "draw":
+      remoteDraw(data);
+      break;
+    case "clear":
+      clearCanvasLocal();
+      break;
+    case "guess":
+      addGuess(data.text, false);
+      break;
+    case "point":
+      // sender says: the guesser (me, receiving) got it right -> I get a point and become the new drawer
+      myScore = data.newGuesserScore;
+      theirScore = data.newDrawerScore;
+      updateScore();
+      addSystemMsg(t("pointWon"));
+      newRound(true);
+      break;
+    case "skip":
+      newRound(false);
+      break;
+  }
+}
+
+/* ---------- Canvas / drawing ---------- */
+let ctx, canvas;
+function setupCanvas(){
+  canvas = $("canvas");
+  ctx = canvas.getContext("2d");
+  resizeCanvas();
+  window.addEventListener("resize", resizeCanvas);
+
+  canvas.addEventListener("pointerdown", (e)=>{
+    if(!iAmDrawer) return;
+    drawing = true;
+    const p = getPos(e);
+    lastX = p.x; lastY = p.y;
+    drawSegment(p.x,p.y,p.x,p.y,currentColor,isEraser?24:currentSize);
+    sendDraw(p.x,p.y,p.x,p.y,currentColor,isEraser?24:currentSize);
+  });
+  canvas.addEventListener("pointermove", (e)=>{
+    if(!iAmDrawer || !drawing) return;
+    const p = getPos(e);
+    drawSegment(lastX,lastY,p.x,p.y,currentColor,isEraser?24:currentSize);
+    sendDraw(lastX,lastY,p.x,p.y,currentColor,isEraser?24:currentSize);
+    lastX = p.x; lastY = p.y;
+  });
+  ["pointerup","pointerleave","pointercancel"].forEach(ev=>{
+    canvas.addEventListener(ev, ()=> drawing=false);
+  });
+}
+
+function resizeCanvas(){
+  const wrap = $("canvasWrap");
+  const dpr = window.devicePixelRatio || 1;
+  const w = wrap.clientWidth, h = wrap.clientHeight;
+  canvas.width = w*dpr; canvas.height = h*dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.lineCap = "round"; ctx.lineJoin = "round";
+}
+
+function getPos(e){
+  const r = canvas.getBoundingClientRect();
+  return { x: (e.clientX - r.left)/r.width, y: (e.clientY - r.top)/r.height };
+}
+
+function drawSegment(x1,y1,x2,y2,color,size){
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = size;
+  ctx.beginPath();
+  ctx.moveTo(x1*w, y1*h);
+  ctx.lineTo(x2*w, y2*h);
+  ctx.stroke();
+}
+
+function sendDraw(x1,y1,x2,y2,color,size){
+  sendData({type:"draw", x1,y1,x2,y2,color,size});
+}
+
+function remoteDraw(d){
+  drawSegment(d.x1,d.y1,d.x2,d.y2,d.color,d.size);
+}
+
+function clearCanvasLocal(){
+  if(ctx){ ctx.clearRect(0,0,canvas.clientWidth,canvas.clientHeight); }
+}
+
+/* toolbar */
+document.querySelectorAll(".color-dot[data-color]").forEach(dot=>{
+  dot.addEventListener("click", ()=>{
+    document.querySelectorAll(".color-dot").forEach(d=>d.classList.remove("selected"));
+    dot.classList.add("selected");
+    currentColor = dot.dataset.color;
+    isEraser = false;
+  });
+});
+document.querySelectorAll(".color-dot[data-size]").forEach(dot=>{
+  dot.addEventListener("click", ()=>{
+    document.querySelectorAll(".color-dot").forEach(d=>d.classList.remove("selected"));
+    dot.classList.add("selected");
+    currentSize = parseInt(dot.dataset.size,10);
+    isEraser = dot.dataset.eraser === "1";
+  });
+});
+$("btnClear").addEventListener("click", ()=>{
+  if(!iAmDrawer) return;
+  clearCanvasLocal();
+  sendData({type:"clear"});
+});
+
+/* guessing */
+$("btnSendGuess").addEventListener("click", sendGuess);
+$("guessInput").addEventListener("keydown", (e)=>{ if(e.key==="Enter") sendGuess(); });
+function sendGuess(){
+  const txt = $("guessInput").value.trim();
+  if(!txt) return;
+  addGuess(txt, true);
+  sendData({type:"guess", text:txt});
+  $("guessInput").value = "";
+}
+function addGuess(text, mine){
+  const div = document.createElement("div");
+  div.className = "guess-item";
+  div.innerHTML = "<b>" + (mine ? "🙋" : "💬") + "</b> " + escapeHtml(text);
+  $("guessLog").appendChild(div);
+  $("guessLog").scrollTop = $("guessLog").scrollHeight;
+}
+function addSystemMsg(text){
+  const div = document.createElement("div");
+  div.className = "guess-item";
+  div.innerHTML = "<b>⭐</b> " + escapeHtml(text);
+  $("guessLog").appendChild(div);
+  $("guessLog").scrollTop = $("guessLog").scrollHeight;
+}
+function escapeHtml(s){
+  return s.replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+/* drawer marks correct */
+$("btnCorrect").addEventListener("click", ()=>{
+  if(!iAmDrawer) return;
+
+  if(isDemo){
+    demoScore += 1;
+    updateScore();
+    addSystemMsg(t("pointWon"));
+    setTimeout(()=> newRound(true), 600); // solo demo: keep drawing, new word
+    return;
+  }
+
+  theirScore += 1; // the other person (guesser) scores
+  updateScore();
+  addSystemMsg(t("correctGuess"));
+  sendData({type:"point", newGuesserScore: theirScore, newDrawerScore: myScore});
+  // I become the guesser now; the other side will send a "round" message
+  // once they start drawing (triggered by receiving "point").
+  iAmDrawer = false;
+  applyRoleUI();
+});
+
+$("btnSkip").addEventListener("click", ()=>{
+  if(!iAmDrawer) return;
+  sendData({type:"skip"});
+  newRound(true); // stay as drawer, new word
+});
+
+})();
+</script>
+</body>
+</html>
